@@ -1,0 +1,51 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Containerfile.dev
+    network_mode: "host"
+    env_file:
+      - .dev.env
+  database:
+    # Official Postgres image from DockerHub (we use the last version)
+    image: 'docker.io/postgres:latest'
+
+    # By default, a Postgres database is running on the 5432 port.
+    # If we want to access the database from our computer (outside the container),
+    # we must share the port with our computer's port.
+    # The syntax is [port we want on our machine]:[port we want to retrieve in the container]
+    # Note: You are free to change your computer's port,
+    # but take into consideration that it will change the way
+    # you are connecting to your database.
+    ports:
+      - 5432:5432
+    command: ["postgres", "-c", "wal_level=logical"]
+    environment:
+      POSTGRES_USER: techtonic # The PostgreSQL user (useful to connect to the database)
+      POSTGRES_PASSWORD: Jkjz1yG9bKcWBeB1zFdgqg # The PostgreSQL password (useful to connect to the database)
+      POSTGRES_DB: techtonic_plates
+    volumes:
+      - pg_data:/var/lib/postgresql/data/
+    networks:
+      - postgres-network
+  pgadmin:
+    image: docker.io/dpage/pgadmin4
+    ports:
+      - 15433:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: pgadmin@email.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      - database
+    networks:
+      - postgres-network
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin/
+
+volumes:
+  pg_data:
+  pgadmin_data:
+
+networks: 
+  postgres-network:
+    driver: bridge

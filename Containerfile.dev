@@ -1,0 +1,8 @@
+FROM docker.io/rust:latest
+
+RUN cargo install cargo-watch
+RUN cargo install sea-orm-cli@1.1.0
+RUN rustup component add rustfmt
+
+RUN apt update -y
+RUN apt install -y make cmake libssl-dev libsasl2-dev libzstd-dev
