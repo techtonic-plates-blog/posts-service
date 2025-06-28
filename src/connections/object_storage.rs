@@ -2,6 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use minio::s3::{creds::StaticProvider, http::BaseUrl, Client as MinioClient, ClientBuilder};
 
+pub const TYPST_FILES_BUCKET: &str = "typst-files";
 
 #[derive(Clone)]
 pub struct ObjectStorage(MinioClient);

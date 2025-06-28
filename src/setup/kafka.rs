@@ -1,6 +1,6 @@
 use crate::config;
 use anyhow::anyhow;
-use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection};
+use sea_orm::{ ConnectionTrait, DatabaseConnection};
 use tracing::debug;
 
 
@@ -48,7 +48,7 @@ pub async fn kafka_setup(db: DatabaseConnection) -> anyhow::Result<()> {
         .await?;
 
     // Accept 200 OK or 409 Conflict (already exists)
-    if !matches!(res.status().as_u16(), 200 | 201) {
+    if !matches!(res.status().as_u16(), 200 | 201 | 409) {
         return Err(anyhow!("{}", res.text().await?));
     }
 

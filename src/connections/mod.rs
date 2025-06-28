@@ -1,3 +1,3 @@
 pub use object_storage::ObjectStorage;
 
-mod object_storage;
+pub mod object_storage;

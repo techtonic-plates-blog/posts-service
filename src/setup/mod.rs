@@ -1,9 +1,6 @@
 use crate::config;
-use crate::connectors::ObjectStorage;
-use anyhow::anyhow;
-use rdkafka::{ClientConfig, producer::FutureProducer};
-use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection};
-use tracing::debug;
+use crate::connections::ObjectStorage;
+use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 
 mod kafka;
 

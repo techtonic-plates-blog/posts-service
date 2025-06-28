@@ -1,12 +1,12 @@
 
-use poem_openapi::{param::Path, payload::PlainText, OpenApi, Tags};
+use poem_openapi::{OpenApi, Tags};
 
 mod posts;
 
 #[derive(Debug, Tags)]
 #[allow(dead_code)]
 pub enum ApiTags {
-    Auth,
+    Posts,
 
 }
 
@@ -21,5 +21,5 @@ impl RootApi {
 }
 
 pub fn api() -> impl OpenApi {
-    (RootApi)
+    (RootApi, posts::PostsApi)
 }

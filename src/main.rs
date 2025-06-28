@@ -7,7 +7,7 @@ use crate::setup::SetupResult;
 
 mod auth;
 mod config;
-mod connectors;
+mod connections;
 mod routes;
 mod setup;
 
