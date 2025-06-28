@@ -26,7 +26,7 @@ async fn generate_seaorm_entities(
         .arg("--lib")
         .arg("--model-extra-derives")
         .arg("poem_openapi::Object");
-    ;
+    
  
     
     // Capture and display output in real-time
