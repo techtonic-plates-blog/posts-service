@@ -4,10 +4,10 @@ FROM rust:alpine AS builder
 WORKDIR /app
 
 # Install build dependencies
-RUN apk add --no-cache musl-dev openssl-dev pkgconfig
+RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconfig
 
 # Copy source code
-COPY . .
+ADD . .
 
 # Build the application in release mode
 RUN cargo build --release

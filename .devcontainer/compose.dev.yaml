@@ -5,7 +5,7 @@ services:
       dockerfile: Containerfile.dev
   
     env_file:
-      - .dev.env
+      - ../.dev.env
     network_mode: "host"
   database:
     # Official Postgres image from DockerHub (we use the last version)
