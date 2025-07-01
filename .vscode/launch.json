@@ -23,6 +23,136 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
-       
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'techtonic-plates-posts-service'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=techtonic-plates-posts-service",
+                    "--package=techtonic-plates-posts-service"
+                ],
+                "filter": {
+                    "name": "techtonic-plates-posts-service",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'entities'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=entities"
+                ],
+                "filter": {
+                    "name": "entities",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'entities'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=entities",
+                    "--package=entities"
+                ],
+                "filter": {
+                    "name": "entities",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'entities'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=entities",
+                    "--package=entities"
+                ],
+                "filter": {
+                    "name": "entities",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'migration'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=migration"
+                ],
+                "filter": {
+                    "name": "migration",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'migration'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=migration",
+                    "--package=migration"
+                ],
+                "filter": {
+                    "name": "migration",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'migration'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=migration",
+                    "--package=migration"
+                ],
+                "filter": {
+                    "name": "migration",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
     ]
 }
