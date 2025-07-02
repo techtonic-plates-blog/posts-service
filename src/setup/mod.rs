@@ -2,8 +2,6 @@ use crate::config;
 use crate::connections::ObjectStorage;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 
-mod kafka;
-
 pub fn get_object_storage() -> anyhow::Result<ObjectStorage> {
     Ok(ObjectStorage::new(
         config::CONFIG.minio_url.clone(),
@@ -26,7 +24,6 @@ pub struct SetupResult {
 
 pub async fn setup_all() -> anyhow::Result<SetupResult> {
     let db = db_init(&config::CONFIG.database_url).await?;
-    kafka::kafka_setup(db.clone()).await?;
     let object_storage = get_object_storage()?;
     Ok(SetupResult { db, object_storage })
 }
