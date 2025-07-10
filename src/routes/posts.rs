@@ -1,3 +1,4 @@
+use crate::auth::BearerAuthorization;
 use crate::connections::ObjectStorage;
 use crate::connections::object_storage::TYPST_FILES_BUCKET;
 use crate::routes::ApiTags;
@@ -8,6 +9,7 @@ use entities::posts::{ActiveModel, Column, Entity};
 use migration::Expr;
 use minio::s3::types::S3Api;
 use poem::error::BadRequest;
+use poem::Error;
 use poem::{Result, error::InternalServerError, web::Data};
 use poem_openapi::Multipart;
 use poem_openapi::param::Query;
@@ -185,10 +187,19 @@ impl PostsApi {
     async fn put_post(
         &self,
         post_slug: Path<String>,
+        claims: BearerAuthorization,
         db: Data<&DatabaseConnection>,
         object_storage: Data<&ObjectStorage>,
         request: PutPostRequest,
     ) -> Result<PlainText<String>> {
+
+        if !claims.permissions.contains(&"create post".to_string()) {
+             return Err(Error::from_string(
+                "Not enough permissions",
+                poem::http::StatusCode::UNAUTHORIZED,
+            ));
+        }
+
         let now = Utc::now().naive_utc();
         let existing = Entity::find()
             .filter(Column::Slug.eq(post_slug.0.clone()))
