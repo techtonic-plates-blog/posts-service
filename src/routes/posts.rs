@@ -235,7 +235,7 @@ impl PostsApi {
                 &file_name,
                 Bytes::from(file_data),
             );
-            obj.send().await.unwrap();
+            obj.send().await.map_err(InternalServerError)?;
             let new = ActiveModel {
                 id: Set(Uuid::new_v4()),
                 slug: Set(post_slug.0.clone()),
