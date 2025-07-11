@@ -5,13 +5,15 @@ use crate::routes::ApiTags;
 
 use entities::posts::Entity as Posts;
 use migration::Expr;
-use poem::error::BadRequest;
 use poem::Error;
+use poem::error::BadRequest;
 use poem::{Result, error::InternalServerError, web::Data};
 use poem_openapi::param::Query;
 use poem_openapi::payload::PlainText;
 use poem_openapi::{ApiResponse, OpenApi, param::Path, payload::Json};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, Set,
+};
 use sea_orm::{DatabaseConnection, QueryOrder, Value};
 use uuid::Uuid;
 
@@ -36,7 +38,15 @@ struct InsertPostRequest {
     pub author: String,
     pub body: String,
     pub subheading: String,
-}   
+}
+
+#[derive(poem_openapi::Object)]
+struct PatchPostRequest {
+    pub title: Option<String>,
+    pub author: Option<String>,
+    pub body: Option<String>,
+    pub subheading: Option<String>,
+}
 
 #[OpenApi(prefix_path = "/posts", tag = "ApiTags::Posts")]
 impl PostsApi {
@@ -124,7 +134,12 @@ impl PostsApi {
     }
 
     #[oai(path = "/", method = "post")]
-    async fn insert_post(&self, db: Data<&DatabaseConnection>, claims: BearerAuthorization, request: Json<InsertPostRequest>) -> Result<PlainText<String>> {
+    async fn insert_post(
+        &self,
+        db: Data<&DatabaseConnection>,
+        claims: BearerAuthorization,
+        request: Json<InsertPostRequest>,
+    ) -> Result<PlainText<String>> {
         if !claims.permissions.contains(&"create post".to_string()) {
             return Err(Error::from_string(
                 "Not enough permissions",
@@ -134,12 +149,14 @@ impl PostsApi {
 
         let user_id = &claims.sub;
 
-        let user = entities::users::Entity::find_by_id(uuid::Uuid::from_str(user_id).map_err(BadRequest)?)
-            .one(*db)
-            .await
-            .map_err(InternalServerError)?
-            .ok_or_else(|| Error::from_string("User not found", poem::http::StatusCode::UNAUTHORIZED))?;
-
+        let user =
+            entities::users::Entity::find_by_id(uuid::Uuid::from_str(user_id).map_err(BadRequest)?)
+                .one(*db)
+                .await
+                .map_err(InternalServerError)?
+                .ok_or_else(|| {
+                    Error::from_string("User not found", poem::http::StatusCode::UNAUTHORIZED)
+                })?;
 
         let new_post = entities::posts::ActiveModel {
             id: Set(Uuid::new_v4()),
@@ -155,7 +172,78 @@ impl PostsApi {
         Ok(PlainText(format!("/posts/{}", post.slug)))
     }
 
-   /* #[oai(method = "put", path = "/:post_slug")]
+    #[oai(method = "delete", path = "/:post_slug")]
+    async fn delete_post(
+        &self,
+        post_slug: Path<String>,
+        claims: BearerAuthorization,
+        db: Data<&DatabaseConnection>,
+    ) -> Result<PlainText<String>> {
+        if !claims.permissions.contains(&"delete post".to_string()) {
+            return Err(Error::from_string(
+                "Not enough permissions",
+                poem::http::StatusCode::UNAUTHORIZED,
+            ));
+        }
+        let post = Posts::find()
+            .filter(entities::posts::Column::Slug.eq(&post_slug.0))
+            .one(*db)
+            .await
+            .map_err(InternalServerError)?
+            .ok_or_else(|| {
+                Error::from_string("Post not found", poem::http::StatusCode::NOT_FOUND)
+            })?;
+        post.delete(*db).await.map_err(InternalServerError)?;
+        Ok(PlainText(format!("Post {} deleted", post_slug.0)))
+    }
+
+    #[oai(method = "patch", path = "/:post_slug")]
+    async fn patch_post(
+        &self,
+        post_slug: Path<String>,
+        claims: BearerAuthorization,
+        db: Data<&DatabaseConnection>,
+        request: Json<PatchPostRequest>,
+    ) -> Result<PlainText<String>> {
+        if !claims.permissions.contains(&"edit post".to_string()) {
+            return Err(Error::from_string(
+                "Not enough permissions",
+                poem::http::StatusCode::UNAUTHORIZED,
+            ));
+        }
+
+        let mut post: entities::posts::ActiveModel = Posts::find()
+            .filter(entities::posts::Column::Slug.eq(post_slug.0.clone()))
+            .one(*db)
+            .await
+            .map_err(InternalServerError)?
+            .ok_or_else(|| Error::from_string("Post not found", poem::http::StatusCode::NOT_FOUND))?
+            .into();
+
+        if let Some(title) = &request.title {
+            post.title = Set(title.clone());
+        }
+        if let Some(author) = &request.author {
+            post.author = Set(author.clone());
+        }
+        if let Some(body) = &request.body { 
+            post.body = Set(body.clone());
+        }
+        if let Some(subheading) = &request.subheading {
+            post.subheading = Set(subheading.clone());
+        }
+
+        if post.is_changed() {
+            post.last_edit = Set(Some(chrono::Utc::now().naive_utc()));
+            post.update(*db).await.map_err(InternalServerError)?;
+        } else {
+            return Ok(PlainText("No changes made".to_string()));
+        }
+
+        Ok(PlainText(format!("Post {} updated", post_slug.0)))
+    }
+
+    /* #[oai(method = "put", path = "/:post_slug")]
     async fn put_post(
         &self,
         post_slug: Path<String>,
