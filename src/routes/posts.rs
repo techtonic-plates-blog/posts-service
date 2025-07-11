@@ -205,7 +205,7 @@ impl PostsApi {
         db: Data<&DatabaseConnection>,
         request: Json<PatchPostRequest>,
     ) -> Result<PlainText<String>> {
-        if !claims.permissions.contains(&"edit post".to_string()) {
+        if !claims.permissions.contains(&"update post".to_string()) {
             return Err(Error::from_string(
                 "Not enough permissions",
                 poem::http::StatusCode::UNAUTHORIZED,
