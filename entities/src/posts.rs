@@ -14,9 +14,11 @@ pub struct Model {
     pub slug: String,
     pub title: String,
     pub creation_time: DateTime,
-    pub typst_file: String,
+    pub body: String,
     pub author: String,
     pub created_by: Uuid,
+    pub subheading: String,
+    pub last_edit: Option<DateTime>,
     #[sea_orm(column_type = "custom(\"tsvector\")")]
     #[oai(skip)]
     #[serde(skip)]

@@ -14,7 +14,7 @@ mod setup;
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt().init();
-    let SetupResult { db, object_storage } = setup::setup_all().await.expect("setup failed");
+    let SetupResult { db } = setup::setup_all().await.expect("setup failed");
 
     let api_service =
         OpenApiService::new(api(), "Story Time", "1.0").server("http://localhost:5000/");
@@ -31,8 +31,7 @@ async fn main() -> Result<(), std::io::Error> {
         .nest("/docs/", scalar)
         .nest("/docs/api.json", spec_endpoint)
         .nest("/docs/api.yaml", spec_yaml_endpoint)
-        .data(db)
-        .data(object_storage);
+        .data(db);
 
     info!("listening at: http://0.0.0.0:5000");
     poem::Server::new(TcpListener::bind("0.0.0.0:5000"))

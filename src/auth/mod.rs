@@ -25,7 +25,7 @@ pub struct Claims {
 #[allow(dead_code)]
 pub struct BearerAuthorization(pub Claims);
 
-async fn key_checker(req: &Request, token: Bearer) -> Option<Claims> {
+async fn key_checker(_req: &Request, token: Bearer) -> Option<Claims> {
  let decoding_key = jsonwebtoken::DecodingKey::from_rsa_pem(CONFIG.jwt_public_key.as_bytes()).ok()?;
     let Ok(token) = decode(
         &token.token,

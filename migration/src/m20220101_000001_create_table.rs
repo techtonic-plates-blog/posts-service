@@ -23,11 +23,13 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(uuid(Posts::Id).primary_key().not_null())
                     .col(string(Posts::Slug).not_null().unique_key())
-                    .col(string(Posts::Title))
+                    .col(string(Posts::Title).not_null())
                     .col(date_time(Posts::CreationTime).default(Expr::current_timestamp()))
-                    .col(string(Posts::TypstFile))
-                    .col(string(Posts::Author))
-                    .col(uuid(Posts::CreatedBy))
+                    .col(string(Posts::Body).not_null())
+                    .col(string(Posts::Author).not_null())
+                    .col(uuid(Posts::CreatedBy).not_null())
+                    .col(string(Posts::Subheading).not_null())
+                    .col(date_time_null(Posts::LastEdit))
                     .col(
                         custom(Posts::TitleSearch, "TSVECTOR")
                             .extra("GENERATED ALWAYS AS (to_tsvector('english',title)) STORED"),
@@ -59,9 +61,11 @@ enum Posts {
     Table,
     Slug,
     Title,
+    Subheading,
     Author,
     CreationTime,
-    TypstFile,
+    LastEdit,
+    Body,
     CreatedBy,
     #[sea_orm(ignore)]
     TitleSearch,

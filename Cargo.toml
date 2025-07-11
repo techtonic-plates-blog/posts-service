@@ -21,8 +21,6 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 uuid = { version = "1.1.2", features = ["serde", "v4"] }
 anyhow = "1.0.98"
-ollama-rs = "0.3.1"
-minio = "0.3.0"
 entities = { path = "entities" }
 migration = { path = "migration" }
 reqwest = { version = "0.12.20", features = ["json"] }
