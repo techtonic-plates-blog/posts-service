@@ -160,12 +160,14 @@ impl PostsApi {
 
         let new_post = entities::posts::ActiveModel {
             id: Set(Uuid::new_v4()),
-            slug: Set(request.title.to_lowercase().replace(" ", "-")),
+            slug: Set(request.title.to_lowercase().replace(" ", "_")),
             title: Set(request.title.clone()),
             body: Set(request.body.clone()),
             created_by: Set(user.id),
             author: Set(request.author.clone()),
-
+            subheading: Set(request.subheading.clone()),
+            creation_time: Set(chrono::Utc::now().naive_utc()),
+            last_edit: Set(None),
             ..Default::default()
         };
 
