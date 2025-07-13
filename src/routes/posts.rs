@@ -27,8 +27,8 @@ enum GetPostResponse {
 }
 
 #[derive(serde::Serialize, poem_openapi::Object)]
-pub struct GetPostsData {
-    pub posts: Vec<entities::posts::Model>,
+pub struct GetPostsResponse {
+    pub posts: Vec<String>,
     pub count: Option<u64>,
 }
 
@@ -78,7 +78,7 @@ impl PostsApi {
         author: Query<Option<String>>,
         add_count: Query<Option<bool>>,
         creation_time: Query<Option<String>>,
-    ) -> Result<Json<GetPostsData>> {
+    ) -> Result<Json<GetPostsResponse>> {
         use sea_orm::{ColumnTrait, QueryFilter, QuerySelect};
         let limit = limit.0.unwrap_or(20);
         let offset = offset.0.unwrap_or(0);
@@ -111,7 +111,11 @@ impl PostsApi {
             let c = query.count(*db).await.map_err(InternalServerError)?;
             count = Some(c);
         }
-        Ok(Json(GetPostsData { posts, count }))
+        let ids = posts
+            .iter()
+            .map(|post| post.slug.clone())
+            .collect::<Vec<String>>();
+        Ok(Json(GetPostsResponse { posts: ids, count }))
     }
 
     #[oai(method = "post", path = "/bulk_get")]
