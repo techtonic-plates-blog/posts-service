@@ -229,6 +229,8 @@ impl PostsApi {
 
         if let Some(title) = &request.title {
             post.title = Set(title.clone());
+            let slug = title.to_lowercase().replace(" ", "_");
+            post.slug = Set(slug);
         }
         if let Some(author) = &request.author {
             post.author = Set(author.clone());
