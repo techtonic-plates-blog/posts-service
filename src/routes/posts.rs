@@ -164,6 +164,7 @@ impl PostsApi {
             title: Set(request.title.clone()),
             body: Set(request.body.clone()),
             created_by: Set(user.id),
+            author: Set(request.author.clone()),
 
             ..Default::default()
         };
