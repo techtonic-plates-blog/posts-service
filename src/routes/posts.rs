@@ -279,7 +279,8 @@ impl PostsApi {
                 .await
                 .map_err(InternalServerError)?;
             if let Some(existing_post) = slug_being_used {
-                if existing_post.id != post.id.take().unwrap_or_default() {
+                let current_id = post.id.as_ref();
+                if existing_post.id != *current_id {
                     return Ok(PatchPostResponse::Conflict);
                 }
             }
