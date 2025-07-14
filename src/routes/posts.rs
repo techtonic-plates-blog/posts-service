@@ -56,6 +56,24 @@ struct PatchPostRequest {
     pub subheading: Option<String>,
 }
 
+#[derive(ApiResponse)]
+enum PatchPostResponse {
+    #[oai(status = 200)]
+    Ok(PlainText<String>),
+    #[oai(status = 404)]
+    NotFound,
+    #[oai(status = 409)]
+    Conflict,
+}
+
+#[derive(ApiResponse)]
+enum DeletePostResponse {
+    #[oai(status = 200)]
+    Ok(PlainText<String>),
+    #[oai(status = 404)]
+    NotFound,
+}
+
 #[OpenApi(prefix_path = "/posts", tag = "ApiTags::Posts")]
 impl PostsApi {
     #[oai(method = "get", path = "/:post_slug")]
@@ -203,7 +221,7 @@ impl PostsApi {
         post_slug: Path<String>,
         claims: BearerAuthorization,
         db: Data<&DatabaseConnection>,
-    ) -> Result<PlainText<String>> {
+    ) -> Result<DeletePostResponse> {
         if !claims.permissions.contains(&"delete post".to_string()) {
             return Err(Error::from_string(
                 "Not enough permissions",
@@ -214,12 +232,15 @@ impl PostsApi {
             .filter(entities::posts::Column::Slug.eq(&post_slug.0))
             .one(*db)
             .await
-            .map_err(InternalServerError)?
-            .ok_or_else(|| {
-                Error::from_string("Post not found", poem::http::StatusCode::NOT_FOUND)
-            })?;
+            .map_err(InternalServerError)?;
+        
+        let post = match post {
+            Some(post) => post,
+            None => return Ok(DeletePostResponse::NotFound),
+        };
+        
         post.delete(*db).await.map_err(InternalServerError)?;
-        Ok(PlainText(format!("Post {} deleted", post_slug.0)))
+        Ok(DeletePostResponse::Ok(PlainText(format!("Post {} deleted", post_slug.0))))
     }
 
     #[oai(method = "patch", path = "/:post_slug")]
@@ -229,7 +250,7 @@ impl PostsApi {
         claims: BearerAuthorization,
         db: Data<&DatabaseConnection>,
         request: Json<PatchPostRequest>,
-    ) -> Result<PlainText<String>> {
+    ) -> Result<PatchPostResponse> {
         if !claims.permissions.contains(&"update post".to_string()) {
             return Err(Error::from_string(
                 "Not enough permissions",
@@ -237,17 +258,32 @@ impl PostsApi {
             ));
         }
 
-        let mut post: entities::posts::ActiveModel = Posts::find()
+        let post_model = Posts::find()
             .filter(entities::posts::Column::Slug.eq(post_slug.0.clone()))
             .one(*db)
             .await
-            .map_err(InternalServerError)?
-            .ok_or_else(|| Error::from_string("Post not found", poem::http::StatusCode::NOT_FOUND))?
-            .into();
+            .map_err(InternalServerError)?;
+
+        let mut post: entities::posts::ActiveModel = match post_model {
+            Some(model) => model.into(),
+            None => return Ok(PatchPostResponse::NotFound),
+        };
 
         if let Some(title) = &request.title {
             post.title = Set(title.clone());
             let slug = title.to_lowercase().replace(" ", "_");
+
+            let slug_being_used = Posts::find()
+                .filter(entities::posts::Column::Slug.eq(slug.clone()))
+                .one(*db)
+                .await
+                .map_err(InternalServerError)?;
+            if let Some(existing_post) = slug_being_used {
+                if existing_post.id != post.id.take().unwrap_or_default() {
+                    return Ok(PatchPostResponse::Conflict);
+                }
+            }
+            
             post.slug = Set(slug);
         }
         if let Some(author) = &request.author {
@@ -264,10 +300,10 @@ impl PostsApi {
             post.last_edit = Set(Some(chrono::Utc::now().naive_utc()));
             post.update(*db).await.map_err(InternalServerError)?;
         } else {
-            return Ok(PlainText("No changes made".to_string()));
+            return Ok(PatchPostResponse::Ok(PlainText("No changes made".to_string())));
         }
 
-        Ok(PlainText(format!("{}", post_slug.0)))
+        Ok(PatchPostResponse::Ok(PlainText(format!("{}", post_slug.0))))
     }
 
     /* #[oai(method = "put", path = "/:post_slug")]
