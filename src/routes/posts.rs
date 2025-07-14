@@ -40,6 +40,12 @@ struct InsertPostRequest {
     pub subheading: String,
 }
 
+#[derive(ApiResponse)]
+enum InsertPostResponse {
+    #[oai(status = 201)]
+    Created(PlainText<String>),
+}
+
 #[derive(poem_openapi::Object)]
 struct PatchPostRequest {
     pub title: Option<String>,
@@ -143,7 +149,7 @@ impl PostsApi {
         db: Data<&DatabaseConnection>,
         claims: BearerAuthorization,
         request: Json<InsertPostRequest>,
-    ) -> Result<PlainText<String>> {
+    ) -> Result<InsertPostResponse> {
         if !claims.permissions.contains(&"create post".to_string()) {
             return Err(Error::from_string(
                 "Not enough permissions",
@@ -176,7 +182,7 @@ impl PostsApi {
         };
 
         let post = new_post.insert(*db).await.map_err(InternalServerError)?;
-        Ok(PlainText(format!("/posts/{}", post.slug)))
+        Ok(InsertPostResponse::Created(PlainText(format!("/posts/{}", post.slug))))
     }
 
     #[oai(method = "delete", path = "/:post_slug")]
