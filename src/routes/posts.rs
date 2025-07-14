@@ -296,15 +296,16 @@ impl PostsApi {
         if let Some(subheading) = &request.subheading {
             post.subheading = Set(subheading.clone());
         }
-
+        let mut slug = post_slug.0;
         if post.is_changed() {
             post.last_edit = Set(Some(chrono::Utc::now().naive_utc()));
-            post.update(*db).await.map_err(InternalServerError)?;
+            let model = post.update(*db).await.map_err(InternalServerError)?;
+            slug = model.slug;
         } else {
             return Ok(PatchPostResponse::Ok(PlainText("No changes made".to_string())));
         }
 
-        Ok(PatchPostResponse::Ok(PlainText(format!("{}", post_slug.0))))
+        Ok(PatchPostResponse::Ok(PlainText(format!("{}", slug))))
     }
 
     /* #[oai(method = "put", path = "/:post_slug")]
