@@ -44,6 +44,8 @@ struct InsertPostRequest {
 enum InsertPostResponse {
     #[oai(status = 201)]
     Created(PlainText<String>),
+    #[oai(status = 409)]
+    Conflict,
 }
 
 #[derive(poem_openapi::Object)]
@@ -167,6 +169,16 @@ impl PostsApi {
                 .ok_or_else(|| {
                     Error::from_string("User not found", poem::http::StatusCode::UNAUTHORIZED)
                 })?;
+
+        let post_exists = Posts::find()
+            .filter(entities::posts::Column::Slug.eq(request.title.to_lowercase().replace(" ", "_")))
+            .one(*db)
+            .await
+            .map_err(InternalServerError)?;
+
+        if post_exists.is_some() {
+            return Ok(InsertPostResponse::Conflict);
+        }
 
         let new_post = entities::posts::ActiveModel {
             id: Set(Uuid::new_v4()),
