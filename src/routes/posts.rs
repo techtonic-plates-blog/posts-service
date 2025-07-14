@@ -249,7 +249,7 @@ impl PostsApi {
             return Ok(PlainText("No changes made".to_string()));
         }
 
-        Ok(PlainText(format!("Post {} updated", post_slug.0)))
+        Ok(PlainText(format!("{}", post_slug.0)))
     }
 
     /* #[oai(method = "put", path = "/:post_slug")]
