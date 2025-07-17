@@ -25,7 +25,9 @@ async fn generate_seaorm_entities(
         .arg("--seaography")
         .arg("--lib")
         .arg("--model-extra-derives")
-        .arg("poem_openapi::Object");
+        .arg("poem_openapi::Object")
+        .arg("--enum-extra-derives")
+        .arg("poem_openapi::Enum");
     
  
     
@@ -99,6 +101,46 @@ fn patch_column_type_ignore_attr(dir: &Path, types: &[&str]) -> io::Result<()> {
     Ok(())
 }
 
+fn patch_struct_oai_rename_attr(dir: &Path) -> io::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() && path.extension().map(|e| e == "rs").unwrap_or(false) {
+            let mut content = String::new();
+            fs::File::open(&path)?.read_to_string(&mut content)?;
+            let mut lines: Vec<String> = content.lines().map(|l| l.to_string()).collect();
+            let mut changed = false;
+            let mut i = 0;
+            // Get module name from filename (without extension) and capitalize first letter
+            let module_name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let mut oai_name = String::new();
+            if let Some(first) = module_name.chars().next() {
+                oai_name.push(first.to_ascii_uppercase());
+                oai_name.push_str(&module_name[1..]);
+            }
+            while i < lines.len() {
+                if lines[i].trim_start().starts_with("pub struct ") || lines[i].trim_start().starts_with("struct ") {
+                    // Use capitalized module name for OAI rename
+                    let oai_attr = format!("#[oai(rename = \"{}\")]", oai_name);
+                    // Only insert if not already present
+                    if i == 0 || lines[i - 1].trim() != oai_attr {
+                        lines.insert(i, oai_attr);
+                        changed = true;
+                        i += 1; // Skip inserted line
+                    }
+                }
+                i += 1;
+            }
+            if changed {
+                let new_content = lines.join("\n");
+                let mut file = fs::File::create(&path)?;
+                file.write_all(new_content.as_bytes())?;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main()  {
     let mut path = get_relative_cargo_toml().expect("Cargo.toml not found");
@@ -108,4 +150,5 @@ async fn main()  {
     println!("{:?}", path);
     generate_seaorm_entities(&database_url, path.to_str().unwrap()).await.expect("Could not generate entities");
     patch_column_type_ignore_attr(&path, &["tsvector"]).expect("Failed to patch column_type attributes");
+    patch_struct_oai_rename_attr(&path).expect("Failed to patch struct OAI rename attributes");
 }

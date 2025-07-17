@@ -1,4 +1,8 @@
-use sea_orm_migration::{prelude::*, schema::*};
+use sea_orm_migration::{
+    prelude::{extension::postgres::Type, *},
+    schema::*,
+    sea_orm::{EnumIter, Iterable},
+};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -6,6 +10,15 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_type(
+                Type::create()
+                    .as_enum(PostsStatusEnum)
+                    .values(PostStatusVariants::iter())
+                    .to_owned(),
+            )
+            .await?;
+
         manager
             .create_table(
                 Table::create()
@@ -30,6 +43,14 @@ impl MigrationTrait for Migration {
                     .col(uuid(Posts::CreatedBy).not_null())
                     .col(string(Posts::Subheading).not_null())
                     .col(date_time_null(Posts::LastEdit))
+                    .col(
+                        enumeration(
+                            Posts::PostStatus,
+                            PostsStatusEnum,
+                            PostStatusVariants::iter(),
+                        )
+                        .default(Expr::value(PostStatusVariants::Draft.to_string())),
+                    )
                     .col(
                         custom(Posts::TitleSearch, "TSVECTOR")
                             .extra("GENERATED ALWAYS AS (to_tsvector('english',title)) STORED"),
@@ -56,6 +77,17 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(DeriveIden)]
+struct PostsStatusEnum;
+
+#[derive(DeriveIden, EnumIter)]
+enum PostStatusVariants {
+    Draft,
+    Published,
+    Archived,
+    Removed,
+}
+
+#[derive(DeriveIden)]
 enum Posts {
     Id,
     Table,
@@ -67,6 +99,7 @@ enum Posts {
     LastEdit,
     Body,
     CreatedBy,
+    PostStatus,
     #[sea_orm(ignore)]
     TitleSearch,
 

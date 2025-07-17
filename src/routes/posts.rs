@@ -4,6 +4,7 @@ use crate::auth::BearerAuthorization;
 use crate::routes::ApiTags;
 
 use entities::posts::Entity as Posts;
+use entities::sea_orm_active_enums::PostsStatusEnum;
 use migration::Expr;
 use poem::Error;
 use poem::error::BadRequest;
@@ -54,6 +55,7 @@ struct PatchPostRequest {
     pub author: Option<String>,
     pub body: Option<String>,
     pub subheading: Option<String>,
+    pub status: Option<PostsStatusEnum>
 }
 
 #[derive(ApiResponse)]
@@ -296,6 +298,10 @@ impl PostsApi {
         if let Some(subheading) = &request.subheading {
             post.subheading = Set(subheading.clone());
         }
+        if let Some(status) = &request.status {
+            post.post_status = Set(status.clone());
+        }
+
         let mut slug = post_slug.0;
         if post.is_changed() {
             post.last_edit = Set(Some(chrono::Utc::now().naive_utc()));
@@ -308,72 +314,4 @@ impl PostsApi {
         Ok(PatchPostResponse::Ok(PlainText(format!("{}", slug))))
     }
 
-    /* #[oai(method = "put", path = "/:post_slug")]
-    async fn put_post(
-        &self,
-        post_slug: Path<String>,
-        claims: BearerAuthorization,
-        db: Data<&DatabaseConnection>,
-        object_storage: Data<&ObjectStorage>,
-        request: PutPostRequest,
-    ) -> Result<PlainText<String>> {
-
-       if !claims.permissions.contains(&"create post".to_string()) {
-             return Err(Error::from_string(
-                "Not enough permissions",
-                poem::http::StatusCode::UNAUTHORIZED,
-            ));
-        }
-
-        let now = Utc::now().naive_utc();
-        let existing = Entity::find()
-            .filter(Column::Slug.eq(post_slug.0.clone()))
-            .one(*db)
-            .await
-            .map_err(InternalServerError)?;
-
-        let post = if let Some(mut model) = existing {
-            let file_data = request.typst_file.into_vec().await.map_err(BadRequest)?;
-
-            let file_name = format!("{}.typ", model.slug);
-
-            let obj = object_storage.put_object_content(
-                TYPST_FILES_BUCKET.to_string(),
-                file_name,
-                Bytes::from(file_data),
-            );
-            obj.send().await.unwrap();
-
-            model.title = request.title.clone();
-
-            model.author = request.author.clone();
-
-            model.creation_time = model.creation_time;
-            let active: ActiveModel = model.into();
-            active.update(*db).await.map_err(InternalServerError)?
-        } else {
-            let file_data = request.typst_file.into_vec().await.map_err(BadRequest)?;
-            let file_name = format!("{}.typ", post_slug.0);
-
-            let obj = object_storage.put_object_content(
-                TYPST_FILES_BUCKET.to_string(),
-                &file_name,
-                Bytes::from(file_data),
-            );
-            obj.send().await.map_err(InternalServerError)?;
-            let new = ActiveModel {
-                id: Set(Uuid::new_v4()),
-                slug: Set(post_slug.0.clone()),
-                title: Set(request.title.clone()),
-                typst_file: Set(file_name),
-                author: Set(request.author.clone()),
-
-                creation_time: Set(now),
-                created_by: Set(claims.id)
-                ..Default::default()
-            };
-            new.insert(*db).await.map_err(InternalServerError)?
-        };
-        Ok(PlainText(format!("/posts/{}", post.slug)))
-    }*/
 }
