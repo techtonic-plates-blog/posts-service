@@ -106,6 +106,7 @@ impl PostsApi {
         author: Query<Option<String>>,
         add_count: Query<Option<bool>>,
         creation_time: Query<Option<String>>,
+        status: Query<Option<PostsStatusEnum>>,
     ) -> Result<Json<GetPostsResponse>> {
         use sea_orm::{ColumnTrait, QueryFilter, QuerySelect};
         let limit = limit.0.unwrap_or(20);
@@ -125,6 +126,9 @@ impl PostsApi {
         }
         if let Some(creation_time) = &creation_time.0 {
             query = query.filter(entities::posts::Column::CreationTime.gte(creation_time));
+        }
+        if let Some(status) = &status.0 {
+            query = query.filter(entities::posts::Column::PostStatus.eq(status.clone()));
         }
         let posts: Vec<entities::posts::Model> = query
             .clone()
