@@ -35,9 +35,12 @@ pub struct GetPostsResponse {
 
 #[derive(poem_openapi::Object)]
 struct InsertPostRequest {
+    #[oai(validator(min_length = 10))]
     pub title: String,
+    #[oai(validator(min_length = 3))]
     pub author: String,
     pub body: String,
+    #[oai(validator(min_length = 3))]
     pub subheading: String,
 }
 
@@ -51,9 +54,13 @@ enum InsertPostResponse {
 
 #[derive(poem_openapi::Object)]
 struct PatchPostRequest {
+
+    #[oai(validator(min_length = 10))]
     pub title: Option<String>,
+    #[oai(validator(min_length = 3))]
     pub author: Option<String>,
     pub body: Option<String>,
+    #[oai(validator(min_length = 3))]
     pub subheading: Option<String>,
     pub status: Option<PostsStatusEnum>
 }
