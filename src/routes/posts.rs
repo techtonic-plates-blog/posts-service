@@ -13,7 +13,8 @@ use poem_openapi::param::Query;
 use poem_openapi::payload::PlainText;
 use poem_openapi::{ApiResponse, OpenApi, param::Path, payload::Json};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait, PaginatorTrait,
+    QueryFilter, Set, TransactionTrait,
 };
 use sea_orm::{DatabaseConnection, QueryOrder, Value};
 use uuid::Uuid;
@@ -42,6 +43,7 @@ struct InsertPostRequest {
     pub body: String,
     #[oai(validator(min_length = 3))]
     pub subheading: String,
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(ApiResponse)]
@@ -54,7 +56,6 @@ enum InsertPostResponse {
 
 #[derive(poem_openapi::Object)]
 struct PatchPostRequest {
-
     #[oai(validator(min_length = 10))]
     pub title: Option<String>,
     #[oai(validator(min_length = 3))]
@@ -62,7 +63,8 @@ struct PatchPostRequest {
     pub body: Option<String>,
     #[oai(validator(min_length = 3))]
     pub subheading: Option<String>,
-    pub status: Option<PostsStatusEnum>
+    pub status: Option<PostsStatusEnum>,
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(ApiResponse)]
@@ -81,6 +83,27 @@ enum DeletePostResponse {
     Ok(PlainText<String>),
     #[oai(status = 404)]
     NotFound,
+}
+
+async fn create_tag_if_not_exists<T: ConnectionTrait>(
+    db: &T,
+    tag_name: &str,
+) -> Result<entities::tags::Model, Error> {
+    let tag = entities::tags::Entity::find()
+        .filter(entities::tags::Column::Name.eq(tag_name))
+        .one(db)
+        .await
+        .map_err(InternalServerError)?;
+
+    if let Some(tag) = tag {
+        return Ok(tag);
+    }
+
+    let tag = entities::tags::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        name: Set(tag_name.to_string()),
+    };
+    tag.insert(db).await.map_err(InternalServerError)
 }
 
 #[OpenApi(prefix_path = "/posts", tag = "ApiTags::Posts")]
@@ -202,13 +225,25 @@ impl PostsApi {
                 })?;
 
         let post_exists = Posts::find()
-            .filter(entities::posts::Column::Slug.eq(request.title.to_lowercase().replace(" ", "_")))
+            .filter(
+                entities::posts::Column::Slug.eq(request.title.to_lowercase().replace(" ", "_")),
+            )
             .one(*db)
             .await
             .map_err(InternalServerError)?;
 
         if post_exists.is_some() {
             return Ok(InsertPostResponse::Conflict);
+        }
+
+        let tags = request.tags.clone().unwrap_or_default();
+
+        let tnx = db.begin().await.map_err(InternalServerError)?;
+
+        let mut tag_ids = Vec::new();
+        for tag in tags {
+            let tag = create_tag_if_not_exists(&tnx, &tag).await?;
+            tag_ids.push(tag.id);
         }
 
         let new_post = entities::posts::ActiveModel {
@@ -224,8 +259,22 @@ impl PostsApi {
             ..Default::default()
         };
 
-        let post = new_post.insert(*db).await.map_err(InternalServerError)?;
-        Ok(InsertPostResponse::Created(PlainText(format!("/posts/{}", post.slug))))
+        let post = new_post.insert(&tnx).await.map_err(InternalServerError)?;
+
+        for tag_id in tag_ids {
+            let post_tag = entities::post_tags::ActiveModel {
+                post_id: Set(post.id),
+                tag_id: Set(tag_id),
+            };
+            post_tag.insert(&tnx).await.map_err(InternalServerError)?;
+        }
+
+        tnx.commit().await.map_err(InternalServerError)?;
+
+        Ok(InsertPostResponse::Created(PlainText(format!(
+            "/posts/{}",
+            post.slug
+        ))))
     }
 
     #[oai(method = "delete", path = "/:post_slug")]
@@ -246,14 +295,17 @@ impl PostsApi {
             .one(*db)
             .await
             .map_err(InternalServerError)?;
-        
+
         let post = match post {
             Some(post) => post,
             None => return Ok(DeletePostResponse::NotFound),
         };
-        
+
         post.delete(*db).await.map_err(InternalServerError)?;
-        Ok(DeletePostResponse::Ok(PlainText(format!("Post {} deleted", post_slug.0))))
+        Ok(DeletePostResponse::Ok(PlainText(format!(
+            "Post {} deleted",
+            post_slug.0
+        ))))
     }
 
     #[oai(method = "patch", path = "/:post_slug")]
@@ -282,13 +334,15 @@ impl PostsApi {
             None => return Ok(PatchPostResponse::NotFound),
         };
 
+        let tnx = db.begin().await.map_err(InternalServerError)?;
+
         if let Some(title) = &request.title {
             post.title = Set(title.clone());
             let slug = title.to_lowercase().replace(" ", "_");
 
             let slug_being_used = Posts::find()
                 .filter(entities::posts::Column::Slug.eq(slug.clone()))
-                .one(*db)
+                .one(&tnx)
                 .await
                 .map_err(InternalServerError)?;
             if let Some(existing_post) = slug_being_used {
@@ -297,13 +351,13 @@ impl PostsApi {
                     return Ok(PatchPostResponse::Conflict);
                 }
             }
-            
+
             post.slug = Set(slug);
         }
         if let Some(author) = &request.author {
             post.author = Set(author.clone());
         }
-        if let Some(body) = &request.body { 
+        if let Some(body) = &request.body {
             post.body = Set(body.clone());
         }
         if let Some(subheading) = &request.subheading {
@@ -313,16 +367,42 @@ impl PostsApi {
             post.post_status = Set(status.clone());
         }
 
+        if let Some(tags) = &request.tags {
+            let current_id = post.id.as_ref();
+            entities::post_tags::Entity::delete_many()
+                .filter(entities::post_tags::Column::PostId.eq(current_id.clone()))
+                .exec(&tnx)
+                .await
+                .map_err(InternalServerError)?;
+
+            let mut tag_ids = Vec::new();
+            for tag in tags {
+                let tag = create_tag_if_not_exists(&tnx, tag).await?;
+                tag_ids.push(tag.id);
+            }
+
+            for tag_id in tag_ids {
+                let post_tag = entities::post_tags::ActiveModel {
+                    post_id: post.id.clone(),
+                    tag_id: Set(tag_id),
+                };
+                post_tag.insert(&tnx).await.map_err(InternalServerError)?;
+            }
+        }
+
         let mut slug = post_slug.0;
         if post.is_changed() {
             post.last_edit = Set(Some(chrono::Utc::now().naive_utc()));
-            let model = post.update(*db).await.map_err(InternalServerError)?;
+            let model = post.update(&tnx).await.map_err(InternalServerError)?;
             slug = model.slug;
         } else {
-            return Ok(PatchPostResponse::Ok(PlainText("No changes made".to_string())));
+            return Ok(PatchPostResponse::Ok(PlainText(
+                "No changes made".to_string(),
+            )));
         }
+
+        tnx.commit().await.map_err(InternalServerError)?;
 
         Ok(PatchPostResponse::Ok(PlainText(format!("{}", slug))))
     }
-
 }

@@ -15,6 +15,7 @@ pub struct Model {
     #[sea_orm(unique)]
     pub slug: String,
     pub title: String,
+    pub title_image_url: String,
     pub creation_time: DateTime,
     pub body: String,
     pub author: String,
@@ -36,6 +37,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::post_tags::Entity")]
+    PostTags,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::CreatedBy",
@@ -46,9 +49,24 @@ pub enum Relation {
     Users,
 }
 
+impl Related<super::post_tags::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PostTags.def()
+    }
+}
+
 impl Related<super::users::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Users.def()
+    }
+}
+
+impl Related<super::tags::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::post_tags::Relation::Tags.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::post_tags::Relation::Posts.def().rev())
     }
 }
 
@@ -56,6 +74,10 @@ impl ActiveModelBehavior for ActiveModel {}
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelatedEntity)]
 pub enum RelatedEntity {
+    #[sea_orm(entity = "super::post_tags::Entity")]
+    PostTags,
     #[sea_orm(entity = "super::users::Entity")]
     Users,
+    #[sea_orm(entity = "super::tags::Entity")]
+    Tags,
 }

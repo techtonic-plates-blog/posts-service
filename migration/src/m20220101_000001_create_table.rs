@@ -29,6 +29,12 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager.create_table(Table::create().table(Tags::Table)
+            .if_not_exists()
+            .col(uuid(Tags::Id).primary_key())
+            .col(string(Tags::Name).not_null().unique_key())
+            .to_owned()).await?;
+
         manager
             .create_table(
                 Table::create()
@@ -37,6 +43,7 @@ impl MigrationTrait for Migration {
                     .col(uuid(Posts::Id).primary_key().not_null())
                     .col(string(Posts::Slug).not_null().unique_key())
                     .col(string(Posts::Title).not_null())
+                    .col(string(Posts::TitleImageUrl))
                     .col(date_time(Posts::CreationTime).default(Expr::current_timestamp()))
                     .col(string(Posts::Body).not_null())
                     .col(string(Posts::Author).not_null())
@@ -66,7 +73,39 @@ impl MigrationTrait for Migration {
                     )
                     .to_owned(),
             )
-            .await
+            .await?;
+        
+        manager
+            .create_table(
+                Table::create()
+                    .table(PostTags::Table)
+                    .if_not_exists()
+                    .col(uuid(PostTags::PostId).not_null())
+                    .col(uuid(PostTags::TagId).not_null())
+                    .primary_key(
+                        Index::create()
+                            .name("pk_post_tags")
+                            .col(PostTags::PostId)
+                            .col(PostTags::TagId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_post_tags_post_id")
+                            .from(PostTags::Table, PostTags::PostId)
+                            .to(Posts::Table, Posts::Id),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_post_tags_tag_id")
+                            .from(PostTags::Table, PostTags::TagId)
+                            .to(Tags::Table, Tags::Id),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -93,6 +132,7 @@ enum Posts {
     Table,
     Slug,
     Title,
+    TitleImageUrl,
     Subheading,
     Author,
     CreationTime,
@@ -111,4 +151,18 @@ enum Posts {
 enum Users {
     Id,
     Table,
+}
+
+#[derive(DeriveIden)]
+enum PostTags {
+    Table,
+    PostId,
+    TagId
+}
+
+#[derive(DeriveIden)]
+enum Tags {
+    Table,
+    Id,
+    Name
 }
