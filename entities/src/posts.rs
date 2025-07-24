@@ -15,7 +15,7 @@ pub struct Model {
     #[sea_orm(unique)]
     pub slug: String,
     pub title: String,
-    pub title_image_url: String,
+    pub title_image_url: Option<String>,
     pub creation_time: DateTime,
     pub body: String,
     pub author: String,

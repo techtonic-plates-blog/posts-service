@@ -44,6 +44,8 @@ struct InsertPostRequest {
     #[oai(validator(min_length = 3))]
     pub subheading: String,
     pub tags: Option<Vec<String>>,
+    #[oai(validator(min_length = 5))]
+    pub title_image_url: Option<String>,
 }
 
 #[derive(ApiResponse)]
@@ -65,6 +67,8 @@ struct PatchPostRequest {
     pub subheading: Option<String>,
     pub status: Option<PostsStatusEnum>,
     pub tags: Option<Vec<String>>,
+    #[oai(validator(min_length = 5))]
+    pub title_image_url: Option<String>,
 }
 
 #[derive(ApiResponse)]
@@ -256,6 +260,7 @@ impl PostsApi {
             subheading: Set(request.subheading.clone()),
             creation_time: Set(chrono::Utc::now().naive_utc()),
             last_edit: Set(None),
+            title_image_url: Set(request.title_image_url.clone()),
             ..Default::default()
         };
 
@@ -366,6 +371,9 @@ impl PostsApi {
         if let Some(status) = &request.status {
             post.post_status = Set(status.clone());
         }
+        if let Some(title_image_url) = &request.title_image_url {
+            post.title_image_url = Set(Some(title_image_url.clone()));
+        }
 
         if let Some(tags) = &request.tags {
             let current_id = post.id.as_ref();
@@ -389,7 +397,7 @@ impl PostsApi {
                 post_tag.insert(&tnx).await.map_err(InternalServerError)?;
             }
         }
-
+        #[allow(unused)]
         let mut slug = post_slug.0;
         if post.is_changed() {
             post.last_edit = Set(Some(chrono::Utc::now().naive_utc()));
