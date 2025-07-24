@@ -14,16 +14,33 @@ use poem_openapi::payload::PlainText;
 use poem_openapi::{ApiResponse, OpenApi, param::Path, payload::Json};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter, Set, TransactionTrait,
+    QueryFilter, Set, TransactionTrait, QuerySelect,
 };
 use sea_orm::{DatabaseConnection, QueryOrder, Value};
 use uuid::Uuid;
 
 pub struct PostsApi;
+
+#[derive(serde::Serialize, poem_openapi::Object)]
+pub struct PostWithTags {
+    pub id: Uuid,
+    pub slug: String,
+    pub title: String,
+    pub title_image_url: Option<String>,
+    pub creation_time: chrono::NaiveDateTime,
+    pub body: String,
+    pub author: String,
+    pub created_by: Uuid,
+    pub subheading: String,
+    pub last_edit: Option<chrono::NaiveDateTime>,
+    pub post_status: PostsStatusEnum,
+    pub tags: Vec<String>,
+}
+
 #[derive(ApiResponse)]
 enum GetPostResponse {
     #[oai(status = 200)]
-    Ok(Json<entities::posts::Model>),
+    Ok(Json<PostWithTags>),
     #[oai(status = 404)]
     NotFound,
 }
@@ -125,7 +142,33 @@ impl PostsApi {
             .map_err(InternalServerError)?;
 
         match post {
-            Some(post) => return Ok(GetPostResponse::Ok(Json(post))),
+            Some(post) => {
+                // Fetch tags for this post
+                let tags: Vec<entities::tags::Model> = post
+                    .find_related(entities::tags::Entity)
+                    .all(*db)
+                    .await
+                    .map_err(InternalServerError)?;
+
+                let tag_names: Vec<String> = tags.into_iter().map(|tag| tag.name).collect();
+
+                let post_with_tags = PostWithTags {
+                    id: post.id,
+                    slug: post.slug,
+                    title: post.title,
+                    title_image_url: post.title_image_url,
+                    creation_time: post.creation_time,
+                    body: post.body,
+                    author: post.author,
+                    created_by: post.created_by,
+                    subheading: post.subheading,
+                    last_edit: post.last_edit,
+                    post_status: post.post_status,
+                    tags: tag_names,
+                };
+
+                return Ok(GetPostResponse::Ok(Json(post_with_tags)));
+            }
             None => return Ok(GetPostResponse::NotFound),
         }
     }
@@ -142,7 +185,6 @@ impl PostsApi {
         creation_time: Query<Option<String>>,
         status: Query<Option<PostsStatusEnum>>,
     ) -> Result<Json<GetPostsResponse>> {
-        use sea_orm::{ColumnTrait, QueryFilter, QuerySelect};
         let limit = limit.0.unwrap_or(20);
         let offset = offset.0.unwrap_or(0);
         let mut query = Posts::find();
@@ -181,7 +223,11 @@ impl PostsApi {
             .iter()
             .map(|post| post.slug.clone())
             .collect::<Vec<String>>();
-        Ok(Json(GetPostsResponse { posts: ids, count }))
+
+        Ok(Json(GetPostsResponse { 
+            posts: ids, 
+            count
+        }))
     }
 
     #[oai(method = "post", path = "/bulk_get")]
@@ -189,17 +235,47 @@ impl PostsApi {
         &self,
         db: Data<&DatabaseConnection>,
         slugs: Json<Vec<String>>,
-    ) -> Result<Json<Vec<entities::posts::Model>>> {
+    ) -> Result<Json<Vec<PostWithTags>>> {
         if slugs.0.is_empty() {
             Ok(Json(vec![]))
         } else {
-            Ok(Json(
-                Posts::find()
-                    .filter(entities::posts::Column::Slug.is_in(slugs.0.clone()))
+            let posts: Vec<entities::posts::Model> = Posts::find()
+                .filter(entities::posts::Column::Slug.is_in(slugs.0.clone()))
+                .all(*db)
+                .await
+                .map_err(InternalServerError)?;
+
+            let mut posts_with_tags = Vec::new();
+            
+            for post in posts {
+                // Fetch tags for each post
+                let tags: Vec<entities::tags::Model> = post
+                    .find_related(entities::tags::Entity)
                     .all(*db)
                     .await
-                    .map_err(InternalServerError)?,
-            ))
+                    .map_err(InternalServerError)?;
+
+                let tag_names: Vec<String> = tags.into_iter().map(|tag| tag.name).collect();
+
+                let post_with_tags = PostWithTags {
+                    id: post.id,
+                    slug: post.slug,
+                    title: post.title,
+                    title_image_url: post.title_image_url,
+                    creation_time: post.creation_time,
+                    body: post.body,
+                    author: post.author,
+                    created_by: post.created_by,
+                    subheading: post.subheading,
+                    last_edit: post.last_edit,
+                    post_status: post.post_status,
+                    tags: tag_names,
+                };
+
+                posts_with_tags.push(post_with_tags);
+            }
+
+            Ok(Json(posts_with_tags))
         }
     }
 
