@@ -43,7 +43,7 @@ impl MigrationTrait for Migration {
                     .col(uuid(Posts::Id).primary_key().not_null())
                     .col(string(Posts::Slug).not_null().unique_key())
                     .col(string(Posts::Title).not_null())
-                    .col(string_null(Posts::TitleImageUrl))
+                    .col(string_null(Posts::HeroImage))
                     .col(date_time(Posts::CreationTime).default(Expr::current_timestamp()))
                     .col(string(Posts::Body).not_null())
                     .col(string(Posts::Author).not_null())
@@ -132,7 +132,7 @@ enum Posts {
     Table,
     Slug,
     Title,
-    TitleImageUrl,
+    HeroImage,
     Subheading,
     Author,
     CreationTime,

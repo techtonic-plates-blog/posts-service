@@ -26,7 +26,7 @@ pub struct PostWithTags {
     pub id: Uuid,
     pub slug: String,
     pub title: String,
-    pub title_image_url: Option<String>,
+    pub hero_image: Option<String>,
     pub creation_time: chrono::NaiveDateTime,
     pub body: String,
     pub author: String,
@@ -62,7 +62,7 @@ struct InsertPostRequest {
     pub subheading: String,
     pub tags: Option<Vec<String>>,
     #[oai(validator(min_length = 5))]
-    pub title_image_url: Option<String>,
+    pub hero_image: Option<String>,
 }
 
 #[derive(ApiResponse)]
@@ -85,7 +85,7 @@ struct PatchPostRequest {
     pub status: Option<PostsStatusEnum>,
     pub tags: Option<Vec<String>>,
     #[oai(validator(min_length = 5))]
-    pub title_image_url: Option<String>,
+    pub hero_image: Option<String>,
 }
 
 #[derive(ApiResponse)]
@@ -156,7 +156,7 @@ impl PostsApi {
                     id: post.id,
                     slug: post.slug,
                     title: post.title,
-                    title_image_url: post.title_image_url,
+                    hero_image: post.hero_image,
                     creation_time: post.creation_time,
                     body: post.body,
                     author: post.author,
@@ -261,7 +261,7 @@ impl PostsApi {
                     id: post.id,
                     slug: post.slug,
                     title: post.title,
-                    title_image_url: post.title_image_url,
+                    hero_image: post.hero_image,
                     creation_time: post.creation_time,
                     body: post.body,
                     author: post.author,
@@ -289,7 +289,7 @@ impl PostsApi {
         if !claims.permissions.contains(&"create post".to_string()) {
             return Err(Error::from_string(
                 "Not enough permissions",
-                poem::http::StatusCode::UNAUTHORIZED,
+                poem::http::StatusCode::FORBIDDEN
             ));
         }
 
@@ -336,7 +336,7 @@ impl PostsApi {
             subheading: Set(request.subheading.clone()),
             creation_time: Set(chrono::Utc::now().naive_utc()),
             last_edit: Set(None),
-            title_image_url: Set(request.title_image_url.clone()),
+            hero_image: Set(request.hero_image.clone()),
             ..Default::default()
         };
 
@@ -368,7 +368,7 @@ impl PostsApi {
         if !claims.permissions.contains(&"delete post".to_string()) {
             return Err(Error::from_string(
                 "Not enough permissions",
-                poem::http::StatusCode::UNAUTHORIZED,
+                poem::http::StatusCode::FORBIDDEN,
             ));
         }
         let post = Posts::find()
@@ -400,7 +400,7 @@ impl PostsApi {
         if !claims.permissions.contains(&"update post".to_string()) {
             return Err(Error::from_string(
                 "Not enough permissions",
-                poem::http::StatusCode::UNAUTHORIZED,
+                poem::http::StatusCode::FORBIDDEN,
             ));
         }
 
@@ -447,8 +447,8 @@ impl PostsApi {
         if let Some(status) = &request.status {
             post.post_status = Set(status.clone());
         }
-        if let Some(title_image_url) = &request.title_image_url {
-            post.title_image_url = Set(Some(title_image_url.clone()));
+        if let Some(hero_image) = &request.hero_image {
+            post.hero_image = Set(Some(hero_image.clone()));
         }
 
         if let Some(tags) = &request.tags {
