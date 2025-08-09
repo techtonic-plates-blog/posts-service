@@ -286,7 +286,7 @@ impl PostsApi {
         claims: BearerAuthorization,
         request: Json<InsertPostRequest>,
     ) -> Result<InsertPostResponse> {
-        if !claims.permissions.contains(&"create post".to_string()) {
+        if !claims.has_permission("create", "post") {
             return Err(Error::from_string(
                 "Not enough permissions",
                 poem::http::StatusCode::FORBIDDEN
@@ -365,7 +365,7 @@ impl PostsApi {
         claims: BearerAuthorization,
         db: Data<&DatabaseConnection>,
     ) -> Result<DeletePostResponse> {
-        if !claims.permissions.contains(&"delete post".to_string()) {
+        if !claims.has_permission("delete", "post") {
             return Err(Error::from_string(
                 "Not enough permissions",
                 poem::http::StatusCode::FORBIDDEN,
@@ -397,7 +397,7 @@ impl PostsApi {
         db: Data<&DatabaseConnection>,
         request: Json<PatchPostRequest>,
     ) -> Result<PatchPostResponse> {
-        if !claims.permissions.contains(&"update post".to_string()) {
+        if !claims.has_permission("update", "post") {
             return Err(Error::from_string(
                 "Not enough permissions",
                 poem::http::StatusCode::FORBIDDEN,
