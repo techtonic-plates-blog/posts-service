@@ -8,14 +8,6 @@ services:
       - .dev.env
     networks:
       - techtonic_plates_network
-  host-mode:
-    build:
-      context: .
-      dockerfile: Containerfile.dev
-  
-    env_file:
-      - .dev.env
-    networks_mode: "host"
 networks:
   techtonic_plates_network:
     external: true

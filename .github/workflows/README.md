@@ -12,10 +12,10 @@ This directory contains GitHub Actions workflows for building and publishing Doc
 
 **Description:**
 Builds and publishes all four container images to GHCR:
-- `ghcr.io/techtonic-plates-blog/auth-service:latest` (main auth service)
-- `ghcr.io/techtonic-plates-blog/auth-service-entities:latest` (entities generator)
-- `ghcr.io/techtonic-plates-blog/auth-service-migration:latest` (database migrations)
-- `ghcr.io/techtonic-plates-blog/auth-service-terraform:latest` (terraform operations)
+- `ghcr.io/techtonic-plates-blog/posts-service:latest` (main posts service)
+- `ghcr.io/techtonic-plates-blog/posts-service-entities:latest` (entities generator)
+- `ghcr.io/techtonic-plates-blog/posts-service-migration:latest` (database migrations)
+- `ghcr.io/techtonic-plates-blog/posts-service-terraform:latest` (terraform operations)
 
 **Tags:**
 - `latest` - for main branch pushes
@@ -50,12 +50,12 @@ Tests that all Docker builds complete successfully without pushing to registry. 
 
 | Container | Dockerfile | Purpose | Registry Tag Suffix |
 |-----------|------------|---------|-------------------|
-| Auth Service | `container/Containerfile` | Main authentication service | (none) |
+| posts Service | `container/Containerfile` | Main postsentication service | (none) |
 | Entities | `container/Containerfile.entities` | SeaORM entity generator | `-entities` |
 | Migration | `container/Containerfile.migration` | Database migration runner | `-migration` |
 | Terraform | `container/Containerfile.terraform` | Infrastructure management | `-terraform` |
 
-## Registry Authentication
+## Registry postsentication
 
 The workflows use the built-in `GITHUB_TOKEN` with `packages: write` permission to push to GHCR. No additional secrets are required.
 
@@ -69,26 +69,26 @@ All workflows use GitHub Actions cache to speed up builds:
 
 ### Pulling Images
 ```bash
-# Pull the main auth service
-docker pull ghcr.io/techtonic-plates-blog/auth-service:latest
+# Pull the main posts service
+docker pull ghcr.io/techtonic-plates-blog/posts-service:latest
 
 # Pull the migration runner
-docker pull ghcr.io/techtonic-plates-blog/auth-service-migration:latest
+docker pull ghcr.io/techtonic-plates-blog/posts-service-migration:latest
 
 # Pull specific version
-docker pull ghcr.io/techtonic-plates-blog/auth-service:v1.0.0
+docker pull ghcr.io/techtonic-plates-blog/posts-service:v1.0.0
 ```
 
 ### Using in Docker Compose
 ```yaml
 version: '3.8'
 services:
-  auth-service:
-    image: ghcr.io/techtonic-plates-blog/auth-service:latest
+  posts-service:
+    image: ghcr.io/techtonic-plates-blog/posts-service:latest
     # ... other config
   
   migration:
-    image: ghcr.io/techtonic-plates-blog/auth-service-migration:latest
+    image: ghcr.io/techtonic-plates-blog/posts-service-migration:latest
     # ... other config
 ```
 
@@ -97,13 +97,13 @@ services:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: auth-service
+  name: posts-service
 spec:
   template:
     spec:
       containers:
-      - name: auth-service
-        image: ghcr.io/techtonic-plates-blog/auth-service:latest
+      - name: posts-service
+        image: ghcr.io/techtonic-plates-blog/posts-service:latest
         # ... other config
 ```
 

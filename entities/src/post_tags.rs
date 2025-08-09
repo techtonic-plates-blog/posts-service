@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
     Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, poem_openapi :: Object,
 )]
 #[sea_orm(table_name = "post_tags")]
-#[oai(rename = "Post_tags")]
+#[oai(rename = "PostTags")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub post_id: Uuid,

@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: auth-service
+          - name: posts-service
             dockerfile: container/Containerfile
             suffix: ""
           - name: entities

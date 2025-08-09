@@ -1,18 +1,14 @@
-use std::env;
-use std::path::{Path, PathBuf};
 use pathdiff::diff_paths;
-use std::process::{Command, Stdio};
-use std::io::{self, Write, Read};
+use std::env;
 use std::fs;
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
-
-async fn generate_seaorm_entities(
-    database_uri: &str,
-    output_dir: &str,
-) -> io::Result<()> {
+async fn generate_seaorm_entities(database_uri: &str, output_dir: &str) -> io::Result<()> {
     // Build base command
     let mut cmd = Command::new("sea-orm-cli");
-    
+
     // Configure command arguments
     cmd.arg("generate")
         .arg("entity")
@@ -28,16 +24,13 @@ async fn generate_seaorm_entities(
         .arg("poem_openapi::Object")
         .arg("--enum-extra-derives")
         .arg("poem_openapi::Enum");
-    
- 
-    
+
     // Capture and display output in real-time
-    cmd.stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
-    
+    cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+
     // Execute the command
     let status = cmd.status()?;
-    
+
     if status.success() {
         println!("\n✅ Entity generation successful!");
         Ok(())
@@ -49,15 +42,14 @@ async fn generate_seaorm_entities(
     }
 }
 
-
 fn get_relative_cargo_toml() -> Option<PathBuf> {
     // Get absolute path to Cargo.toml directory from env var
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let abs_cargo_toml = Path::new(&manifest_dir).join("Cargo.toml");
-    
+
     // Get current working directory
     let current_dir = env::current_dir().ok()?;
-    
+
     // Compute relative path from current dir to Cargo.toml
     diff_paths(&abs_cargo_toml, current_dir)
 }
@@ -74,10 +66,7 @@ fn patch_column_type_ignore_attr(dir: &Path, types: &[&str]) -> io::Result<()> {
             let mut i = 0;
             while i < lines.len() {
                 for t in types {
-                    let search = format!(
-                        "#[sea_orm(column_type = \"custom(\\\"{}\\\")\")]",
-                        t
-                    );
+                    let search = format!("#[sea_orm(column_type = \"custom(\\\"{}\\\")\")]", t);
                     if lines[i].trim() == search {
                         // Only insert #[sea_orm(ignore)] if not already present on next line
                         if i + 1 >= lines.len() || lines[i + 1].trim() != "#[sea_orm(ignore)]" {
@@ -101,6 +90,24 @@ fn patch_column_type_ignore_attr(dir: &Path, types: &[&str]) -> io::Result<()> {
     Ok(())
 }
 
+fn snake_to_camel_case(snake_str: &str) -> String {
+    let mut camel_case = String::new();
+    let mut capitalize_next = true;
+    
+    for ch in snake_str.chars() {
+        if ch == '_' {
+            capitalize_next = true;
+        } else if capitalize_next {
+            camel_case.push(ch.to_ascii_uppercase());
+            capitalize_next = false;
+        } else {
+            camel_case.push(ch);
+        }
+    }
+    
+    camel_case
+}
+
 fn patch_struct_oai_rename_attr(dir: &Path) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
@@ -111,16 +118,14 @@ fn patch_struct_oai_rename_attr(dir: &Path) -> io::Result<()> {
             let mut lines: Vec<String> = content.lines().map(|l| l.to_string()).collect();
             let mut changed = false;
             let mut i = 0;
-            // Get module name from filename (without extension) and capitalize first letter
+            // Get module name from filename (without extension) and convert to CamelCase
             let module_name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-            let mut oai_name = String::new();
-            if let Some(first) = module_name.chars().next() {
-                oai_name.push(first.to_ascii_uppercase());
-                oai_name.push_str(&module_name[1..]);
-            }
+            let oai_name = snake_to_camel_case(module_name);
             while i < lines.len() {
-                if lines[i].trim_start().starts_with("pub struct ") || lines[i].trim_start().starts_with("struct ") {
-                    // Use capitalized module name for OAI rename
+                if lines[i].trim_start().starts_with("pub struct ")
+                    || lines[i].trim_start().starts_with("struct ")
+                {
+                    // Use CamelCase module name for OAI rename
                     let oai_attr = format!("#[oai(rename = \"{}\")]", oai_name);
                     // Only insert if not already present
                     if i == 0 || lines[i - 1].trim() != oai_attr {
@@ -142,13 +147,16 @@ fn patch_struct_oai_rename_attr(dir: &Path) -> io::Result<()> {
 }
 
 #[tokio::main]
-async fn main()  {
+async fn main() {
     let mut path = get_relative_cargo_toml().expect("Cargo.toml not found");
-    let database_url = env!("DATABASE_URL").to_string();
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
     path.pop();
     path.push("src");
     println!("{:?}", path);
-    generate_seaorm_entities(&database_url, path.to_str().unwrap()).await.expect("Could not generate entities");
-    patch_column_type_ignore_attr(&path, &["tsvector"]).expect("Failed to patch column_type attributes");
+    generate_seaorm_entities(&database_url, path.to_str().unwrap())
+        .await
+        .expect("Could not generate entities");
+    patch_column_type_ignore_attr(&path, &["tsvector"])
+        .expect("Failed to patch column_type attributes");
     patch_struct_oai_rename_attr(&path).expect("Failed to patch struct OAI rename attributes");
 }
