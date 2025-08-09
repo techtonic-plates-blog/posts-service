@@ -1,7 +1,6 @@
-# GitHub Actions workflow for building and publishing Docker image to GitHub Container Registry
-# Save this file as .github/workflows/docker-publish.yml
+# GitHub Actions workflow for building and publishing all Docker images to GitHub Container Registry
 
-name: Build and Publish Docker image
+name: Build and Publish Docker Images
 
 on:
   push:
@@ -10,12 +9,29 @@ on:
       - '*'  # triggers on any tag
   workflow_dispatch:
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+
+    strategy:
+      matrix:
+        include:
+          - name: auth-service
+            dockerfile: container/Containerfile
+            suffix: ""
+          - name: entities
+            dockerfile: container/Containerfile.entities
+            suffix: "-entities"
+          - name: migration
+            dockerfile: container/Containerfile.migration
+            suffix: "-migration"
 
     steps:
       - name: Checkout repository
@@ -27,24 +43,29 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract tag name
-        id: extract_tag
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "::set-output name=tag::latest"
-          else
-            echo "::set-output name=tag::nightly"
-          fi
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.suffix }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=nightly,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build and push ${{ matrix.name }} image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: container/Containerfile
+          file: ${{ matrix.dockerfile }}
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.extract_tag.outputs.tag }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
