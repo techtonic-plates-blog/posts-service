@@ -14,7 +14,7 @@ use poem_openapi::payload::PlainText;
 use poem_openapi::{ApiResponse, OpenApi, param::Path, payload::Json};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter, Set, TransactionTrait, QuerySelect,
+    QueryFilter, QuerySelect, Set, TransactionTrait,
 };
 use sea_orm::{DatabaseConnection, QueryOrder, Value};
 use uuid::Uuid;
@@ -71,6 +71,8 @@ enum InsertPostResponse {
     Created(PlainText<String>),
     #[oai(status = 409)]
     Conflict,
+    #[oai(status = 400)]
+    BadRequest(PlainText<String>),
 }
 
 #[derive(poem_openapi::Object)]
@@ -96,6 +98,8 @@ enum PatchPostResponse {
     NotFound,
     #[oai(status = 409)]
     Conflict,
+    #[oai(status = 400)]
+    BadRequest(PlainText<String>),
 }
 
 #[derive(ApiResponse)]
@@ -224,10 +228,7 @@ impl PostsApi {
             .map(|post| post.slug.clone())
             .collect::<Vec<String>>();
 
-        Ok(Json(GetPostsResponse { 
-            posts: ids, 
-            count
-        }))
+        Ok(Json(GetPostsResponse { posts: ids, count }))
     }
 
     #[oai(method = "post", path = "/bulk_get")]
@@ -246,7 +247,7 @@ impl PostsApi {
                 .map_err(InternalServerError)?;
 
             let mut posts_with_tags = Vec::new();
-            
+
             for post in posts {
                 // Fetch tags for each post
                 let tags: Vec<entities::tags::Model> = post
@@ -289,8 +290,14 @@ impl PostsApi {
         if !claims.has_permission("create", "post") {
             return Err(Error::from_string(
                 "Not enough permissions",
-                poem::http::StatusCode::FORBIDDEN
+                poem::http::StatusCode::FORBIDDEN,
             ));
+        }
+
+        if request.title.is_empty() || request.body.is_empty() {
+            return Ok(InsertPostResponse::BadRequest(PlainText(
+                "Title and body cannot be empty".to_string(),
+            )));
         }
 
         let user_id = &claims.sub;
@@ -418,6 +425,11 @@ impl PostsApi {
         let tnx = db.begin().await.map_err(InternalServerError)?;
 
         if let Some(title) = &request.title {
+            if title.is_empty() {
+                return Ok(PatchPostResponse::BadRequest(PlainText(
+                    "Title cannot be empty".to_string(),
+                )));
+            }
             post.title = Set(title.clone());
             let slug = title.to_lowercase().replace(" ", "_");
 
